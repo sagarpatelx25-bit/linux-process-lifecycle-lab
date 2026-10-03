@@ -108,15 +108,22 @@ When a process is created, the OS organizes memory into different sections:
 ## 🛠️ Build and Execution Commands
 
 ```bash
-# Compile all 5 task binaries
+# Compile all binaries into bin/
 make all
+
+# Build debug binaries with symbols for GDB
+make debug
+
+# Run interactive terminal menu
+chmod +x scripts/menu.sh
+./scripts/menu.sh
+
+# Run automated tests and assertions
+chmod +x scripts/test_exit_codes.sh
+./scripts/test_exit_codes.sh
 
 # Clean build artifacts
 make clean
-
-# Automated test runner
-chmod +x scripts/run_all.sh
-./scripts/run_all.sh
 ```
 
 ---
@@ -126,6 +133,8 @@ chmod +x scripts/run_all.sh
 - [Theory 1: Process Concept & Memory Segments](docs/01_theory_process_layout.md)
 - [Theory 2: OS Program Loading (`fork` + `execve`)](docs/02_os_loading_and_execution.md)
 - [Theory 3: Process Lifecycle, Termination, and Cleanup](docs/03_process_lifecycle_and_termination.md)
+- [Theory 4: Linux `/proc` Virtual Filesystem Internals](docs/05_procfs_internals.md)
+- [Theory 5: POSIX Signals & Asynchronous Interrupts Guide](docs/06_posix_signals_guide.md)
 - [Lecture 2 Knowledge Assessment: All 15 Q&As](docs/04_knowledge_test_qa.md)
 
 ---
