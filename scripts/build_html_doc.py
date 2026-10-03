@@ -19,7 +19,7 @@ html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Process Lifecycles & OS Interaction: Step-by-Step Guide</title>
+<title>Lab 2: Linux Process Lifecycles &amp; OS Interaction: Step-by-Step Guide</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
   body {{
@@ -41,6 +41,7 @@ html_content = f"""<!DOCTYPE html>
   th {{ background: #f6f8fa; font-weight: 600; }}
   img {{ max-width: 100%; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); margin: 15px 0; border: 1px solid #30363d; background: #0c0c0c; }}
   .badge {{ display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; background: #ddf4ff; color: #0969da; margin-right: 8px; }}
+  .summary-box {{ background: #f6f8fa; border: 1px solid #d0d7de; border-left: 5px solid #0969da; padding: 16px 20px; border-radius: 6px; margin: 25px 0; }}
   .checklist {{ list-style-type: none; padding-left: 0; }}
   .checklist li::before {{ content: '✔ '; color: #1a7f37; font-weight: bold; }}
   .qa-block {{ background: #f6f8fa; border-left: 4px solid #0969da; padding: 12px 18px; margin-bottom: 16px; border-radius: 0 6px 6px 0; }}
@@ -54,29 +55,88 @@ html_content = f"""<!DOCTYPE html>
 </head>
 <body>
 
-<h1>Process Lifecycles & OS Interaction: Step-by-Step Guide</h1>
-<p><strong>Course:</strong> ST5039CMD Programming and Operating System &bull; <strong>Topic:</strong> Process Layout, Virtual Memory & OS Loading (Lecture 2 & Lab 3)</p>
+<h1>Lab 2: Linux Process Lifecycles &amp; OS Interaction: Step-by-Step Guide</h1>
+<p><strong>Course:</strong> ST5039CMD Programming and Operating System &bull; <strong>Topic:</strong> Process Layout, Virtual Memory &amp; OS Loading (Lecture 2 &amp; Lab 2)</p>
 <div>
   <span class="badge">Linux Kernel</span>
-  <span class="badge">POSIX C11</span>
-  <span class="badge">Process Management</span>
-  <span class="badge">Virtual Memory</span>
+  <span class="badge">POSIX System Calls</span>
+  <span class="badge">Memory Layout</span>
+  <span class="badge">Exit Status ($?)</span>
 </div>
 
-<h2>I. Introduction</h2>
-<p>In Lecture 2 and Lab 3, we learned that an Operating System manages processes and system resources. Instead of just writing code that prints text, we author C programs that interact directly with the Linux kernel to query process identity, control execution lifecycles, and communicate success or failure back to the host shell.</p>
+<div class="summary-box">
+  <h2 style="margin-top: 0; border-bottom: none; padding-bottom: 0; color: #0969da;">📌 Executive Summary &amp; Lab Summarization (LAB 2)</h2>
+  <p>The primary objective of <strong>Lab 2</strong> is to investigate the transition of passive disk executables into active in-memory processes managed by the Linux kernel. A process is an executing program instance with dedicated virtual memory segments, unique Process IDs (PIDs), file descriptors (0, 1, 2), and exit status feedback.</p>
+  
+  <table>
+    <thead>
+      <tr>
+        <th>Task #</th>
+        <th>Task Title</th>
+        <th>Core Concept</th>
+        <th>Key Commands</th>
+        <th>State / Output</th>
+        <th>Kernel Mechanism</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Task 1</strong></td>
+        <td>Long-Running Process</td>
+        <td>Backgrounding (<code>&amp;</code>)</td>
+        <td><code>./task1 &amp;</code><br><code>ps aux | grep task1</code></td>
+        <td>State <code>S</code> (Sleep)<br>Job ID <code>[1]</code></td>
+        <td>Frees shell immediately; <code>sleep(1)</code> yields CPU cycles to the scheduler.</td>
+      </tr>
+      <tr>
+        <td><strong>Task 2</strong></td>
+        <td>Process Identity</td>
+        <td>PID &amp; Parent PPID</td>
+        <td><code>./task2 &amp;</code><br><code>ps -p 12345 -o pid,ppid,cmd</code></td>
+        <td>PID: <code>12345</code><br>PPID: <code>8901</code></td>
+        <td>Kernel tracks task hierarchy; PPID traces back to calling bash shell.</td>
+      </tr>
+      <tr>
+        <td><strong>Task 3</strong></td>
+        <td>Exit Status Codes</td>
+        <td>Shell Feedback (<code>$?</code>)</td>
+        <td><code>./task3</code><br><code>echo $?</code></td>
+        <td>Input 5 &rarr; <code>$? = 0</code><br>Input -5 &rarr; <code>$? = 1</code></td>
+        <td>Program signals success (0) or error (non-zero) back to host shell via return code.</td>
+      </tr>
+      <tr>
+        <td><strong>Task 4</strong></td>
+        <td>Standard I/O Streams</td>
+        <td>File Descriptors (0 &amp; 1)</td>
+        <td><code>./task4</code></td>
+        <td>Input: "John"<br>Output formatted</td>
+        <td>Kernel maps <code>stdin</code> (fd 0) to keyboard and <code>stdout</code> (fd 1) to display.</td>
+      </tr>
+      <tr>
+        <td><strong>Task 5</strong></td>
+        <td>Conditional Lifecycle</td>
+        <td>Branching &amp; Cleanup</td>
+        <td><code>./task5</code><br><code>echo $?</code></td>
+        <td>Choice 1 &rarr; exit 0<br>Choice 0 &rarr; exit 1</td>
+        <td>Demonstrates process memory allocation, execution, and PCB reclamation.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
-<h2>II. Architecture: A Process Layout & OS Loading</h2>
+<hr style="border: none; border-top: 1px solid #d0d7de; margin: 25px 0;">
+
+<h2>II. Architecture Overview: A Process Layout &amp; OS Loading</h2>
+
 <h3>1. Program vs. Process</h3>
-<table>
-  <tr><th>Concept</th><th>Definition & Properties</th><th>Storage & State</th></tr>
-  <tr><td><strong>File / Executable</strong></td><td>Static entity stored persistently on non-volatile disk. Contains machine opcodes, data segments, and ELF metadata.</td><td>Static on Disk (SSD/HDD); inactive.</td></tr>
-  <tr><td><strong>Process</strong></td><td>Dynamic entity representing a program in active execution. Allocated private address space, page tables, and CPU registers.</td><td>Dynamic in Main Memory (RAM); managed by OS.</td></tr>
-  <tr><td><strong>OS Role</strong></td><td>The Operating System kernel is solely responsible for creating, scheduling, isolating, and reclaiming processes.</td><td>Kernel Process Table & Scheduler.</td></tr>
-</table>
+<ul>
+  <li><strong>Program (File):</strong> An inert, static binary executable residing on disk storage, structured in ELF format.</li>
+  <li><strong>Process:</strong> An active instance of a program loaded in system RAM, with dedicated virtual memory mappings, CPU register states, file descriptors, and kernel credentials.</li>
+</ul>
 
-<h3>2. Memory Process Layout</h3>
-<p>When a process is loaded into RAM, the Linux kernel organizes its virtual address space into five distinct segments:</p>
+<h3>2. Process Memory Layout</h3>
+<p>When the kernel creates a process, it establishes a virtual address space partitioned into distinct segments:</p>
+
 <img src="{img6}" alt="Memory Process Layout">
 
 <ul>
@@ -134,38 +194,30 @@ html_content = f"""<!DOCTYPE html>
 <img src="{img5}" alt="Task 5 - Conditional Execution and Termination">
 <p><strong>Observation:</strong> Choosing <code>1</code> causes the process to continue, simulate workload (<code>sleep(5)</code>), and return exit code <code>0</code> (<code>Success</code>). Choosing <code>0</code> causes the process to immediately abort and return exit code <code>1</code> (<code>Failure</code>). Each independent run receives a newly allocated PID from the kernel (<code>12400</code> vs <code>12405</code>), illustrating process creation and destruction.</p>
 
-<h2>IV. Lecture 2 Knowledge Test Q&A Reference</h2>
+<h2>IV. Lecture 2 Knowledge Test Q&amp;A Reference</h2>
 <div class="qa-block"><div class="qa-q">1. What is the difference between source code and an executable?</div><div class="qa-a">Source code is human-readable high-level code (.c). An executable is a machine-readable binary file (.out/ELF) created by a compiler and linker containing CPU instructions and data sections.</div></div>
 <div class="qa-block"><div class="qa-q">2. What command compiles a C program?</div><div class="qa-a"><code>gcc program.c -o program</code></div></div>
 <div class="qa-block"><div class="qa-q">3. What is a process?</div><div class="qa-a">A process is an active program in execution loaded into main memory (RAM) and managed by the operating system kernel.</div></div>
-<div class="qa-block"><div class="qa-q">4. What does PID stand for?</div><div class="qa-a">Process Identifier.</div></div>
-<div class="qa-block"><div class="qa-q">5. How do you check the exit code of the last command?</div><div class="qa-a">By evaluating the shell parameter <code>echo $?</code>.</div></div>
-<div class="qa-block"><div class="qa-q">6. What does return 0; mean in main()?</div><div class="qa-a">It signals to the OS kernel that the process concluded execution successfully without errors.</div></div>
-<div class="qa-block"><div class="qa-q">7. What system call creates a new process?</div><div class="qa-a">The <code>fork()</code> system call.</div></div>
-<div class="qa-block"><div class="qa-q">8. What system call replaces current process with a new program?</div><div class="qa-a">The <code>execve()</code> system call.</div></div>
-<div class="qa-block"><div class="qa-q">9. How do you see running processes in terminal?</div><div class="qa-a">Using process inspection tools such as <code>ps aux</code>, <code>top</code>, or <code>htop</code>.</div></div>
-<div class="qa-block"><div class="qa-q">10. What happens to memory when a process ends?</div><div class="qa-a">The operating system kernel unmaps the process's page tables and frees all physical RAM back into the system memory pool.</div></div>
-<div class="qa-block"><div class="qa-q">11. Where is your program stored before execution?</div><div class="qa-a">On persistent non-volatile disk storage (SSD/HDD) as a static binary file.</div></div>
-<div class="qa-block"><div class="qa-q">12. Where is your program stored during execution?</div><div class="qa-a">In volatile main memory (RAM) within its private virtual address space.</div></div>
-<div class="qa-block"><div class="qa-q">13. Why does the OS assign a PID to each process?</div><div class="qa-a">To uniquely track, schedule, allocate resources to, and deliver signals to each active process.</div></div>
-<div class="qa-block"><div class="qa-q">14. When does a process end?</div><div class="qa-a">Upon normal exit (return/exit), fatal external signal (Ctrl+C/kill), or an unhandled hardware crash (segfault/divide by zero).</div></div>
-<div class="qa-block"><div class="qa-q">15. Who assigns the PID?</div><div class="qa-a">The Operating System Kernel.</div></div>
-
-<h2>V. Submission Checklist</h2>
-<ul class="checklist">
-  <li>All 5 C source files created with standard naming conventions (<code>task1_alive.c</code>, <code>task2_identity.c</code>, <code>task3_exit.c</code>, <code>task4_input.c</code>, <code>task5_control.c</code>).</li>
-  <li>Theoretical documentation integrating Lecture 2 topics (A Process Layout, Virtual Memory, <code>fork()</code> + <code>execve()</code>, <code>_start</code>, and Termination states).</li>
-  <li>Raw black console verification screenshots matching the GCC guide style generated and cataloged.</li>
-  <li>Complete 15-question Knowledge Test answered with systems engineering rigor.</li>
-  <li>Standard GNU Makefile and automated bash testing runner provided.</li>
-  <li>Code and documentation pushed to GitHub repository with granular commits.</li>
-</ul>
+<div class="qa-block"><div class="qa-q">4. What does the command ./myprogram do?</div><div class="qa-a">It instructs the shell to invoke <code>fork()</code> and <code>execve()</code> system calls, loading the executable into virtual memory and initiating execution at its entry point.</div></div>
+<div class="qa-block"><div class="qa-q">5. Why does an OS provide feedback after execution?</div><div class="qa-a">To inform the calling environment (shell or script) whether the process completed successfully (code 0) or encountered an error (non-zero).</div></div>
+<div class="qa-block"><div class="qa-q">6. What is a process layout in memory?</div><div class="qa-a">The structural memory mapping allocated by the OS, including Code, Data, BSS, Heap, and Stack segments.</div></div>
+<div class="qa-block"><div class="qa-q">7. Name the different sections of memory allocated to a process.</div><div class="qa-a">Stack, Heap, BSS, Data, and Text/Code segments.</div></div>
+<div class="qa-block"><div class="qa-q">8. What is stored in the Code/Text section?</div><div class="qa-a">Compiled CPU machine instructions, marked read-only and executable.</div></div>
+<div class="qa-block"><div class="qa-q">9. What is stored in the Data section?</div><div class="qa-a">Initialized global and static variables.</div></div>
+<div class="qa-block"><div class="qa-q">10. What is stored in the BSS section?</div><div class="qa-a">Uninitialized global and static variables, zero-filled by the OS loader.</div></div>
+<div class="qa-block"><div class="qa-q">11. What is the difference between the Stack and the Heap?</div><div class="qa-a">Stack stores automatic local variables and call frames (LIFO, fast, grows down); Heap stores dynamically allocated memory via <code>malloc()</code> (flexible, manually freed, grows up).</div></div>
+<div class="qa-block"><div class="qa-q">12. Which direction does the Stack grow in memory?</div><div class="qa-a">Downwards (from high to low virtual addresses).</div></div>
+<div class="qa-block"><div class="qa-q">13. Which direction does the Heap grow in memory?</div><div class="qa-a">Upwards (from low to high virtual addresses).</div></div>
+<div class="qa-block"><div class="qa-q">14. What happens when the Stack and Heap collide?</div><div class="qa-a">Virtual memory exhaustion occurs, triggering a segmentation fault (<code>SIGSEGV</code>) or stack overflow exception.</div></div>
+<div class="qa-block"><div class="qa-q">15. Why are memory sections separated in a process layout?</div><div class="qa-a">For hardware-enforced protection (read-only code), memory conservation, and dynamic scaling of local versus dynamic structures.</div></div>
 
 </body>
 </html>
 """
 
-out_html = os.path.join(base_dir, "Lab3_Process_Lifecycles_Documentation.html")
-with open(out_html, "w", encoding="utf-8") as f:
+output_path = os.path.join(base_dir, "Lab_2_Process_Lifecycles_Documentation.html")
+with open(output_path, "w", encoding="utf-8") as f:
     f.write(html_content)
-print("Updated standalone HTML report:", out_html)
+
+print(f"Generated standalone self-contained HTML doc: {output_path}")
+print(f"File size: {os.path.getsize(output_path)} bytes")
