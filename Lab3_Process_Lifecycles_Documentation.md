@@ -1,249 +1,102 @@
 # Lab 3: Investigating Process Lifecycles and OS Interaction
-## Comprehensive Technical Report & Systems Documentation
+## Comprehensive Step-by-Step Technical Documentation
 
 ---
 
-## I. Executive Overview & Theoretical Foundations
+## I. Executive Introduction
 
-In modern operating systems, a compiled C program does not execute in isolation; it becomes an active **process** scheduled, monitored, isolated, and governed by the Linux kernel. This document presents a comprehensive, practical investigation bridging the theoretical concepts taught in **Lecture 2 (A Process Layout & OS Loading)** with hands-on systems verification in **Lab 3**.
+In **Lecture 3 & Lecture 2**, we learned that an Operating System manages processes and system resources. In this laboratory, we bring that theory to life. Instead of just writing code that prints text, we author C programs that interact directly with the Linux kernel to query process identity, control execution lifecycles, and communicate success or failure back to the host shell.
 
 ---
 
-## II. Lecture 2 Architecture: A Process Layout in Memory
+## II. Lecture 2 Architecture: A Process Layout & OS Loading
 
-### 1. From Source Code to Process
-A program begins as human-readable source code (`.c`), which is converted by the compiler driver (`gcc`) into a machine-readable executable (`.out` / ELF). When executed, the operating system kernel instantiates a dynamic process in RAM:
+### 1. Program vs. Process
+* **File / Executable**: A static binary stored on disk, consisting of machine instructions and ELF metadata. It remains inactive until executed.
+* **Process**: A dynamic program in active execution loaded into main memory (RAM). The OS allocates virtual memory, registers, and tracks it via a unique PID.
 
-```
-    [ Source Code: .c ] ──► [ gcc Compilation ] ──► [ Executable Binary: .out ]
-                                                            │
-                                                            │ ./run (fork + execve)
-                                                            ▼
-                                                ┌───────────────────────────┐
-                                                │    PROCESS (PID in RAM)   │
-                                                │                           │
-                                                │ ◄── Keyboard (scanf)      │
-                                                │ ◄── OS Kernel (getpid)    │
-                                                │ ──► Screen (printf)       │
-                                                │ ──► Shell Exit Code ($?)  │
-                                                └───────────────────────────┘
-```
+### 2. Memory Process Layout
+When a process is loaded into RAM, the Linux kernel organizes its virtual address space into five distinct segments:
 
-### 2. Process Memory Segment Layout
-When the Linux kernel prepares a process, it partitions its virtual memory space into five distinct segments:
+![Memory Process Layout](assets/screenshots/raw/06_memory_layout.png)
 
-![Process Memory Layout](assets/screenshots/06_process_memory_layout.png)
-
-1. **Stack Segment**: Stores local variables, function frames, and return addresses (grows downwards).
-2. **Heap Segment**: Manages dynamic memory allocations via `malloc()` / `free()` (grows upwards).
-3. **BSS Segment (`.bss`)**: Holds uninitialized global and static variables; zeroed out by the kernel.
-4. **Data Segment (`.data`)**: Stores initialized global and static variables loaded directly from disk.
-5. **Code / Text Segment (`.text`)**: Contains raw CPU machine instructions; marked Read-Only/Executable (`R-X`).
+1. **Stack Segment**: Stores function parameters, local variables, and return pointers (grows downwards).
+2. **Heap Segment**: Manages dynamic memory allocated via `malloc()` / `free()` (grows upwards).
+3. **BSS Segment (`.bss`)**: Uninitialized global and static variables; zeroed out by the kernel.
+4. **Data Segment (`.data`)**: Initialized global and static variables loaded directly from the binary.
+5. **Code / Text Segment (`.text`)**: Executable CPU machine instructions; marked Read-Only/Executable (`R-X`).
 
 ### 3. How the OS Loads and Executes a Program
-1. **User Request**: The user enters `./program` into the shell.
-2. **`fork()` System Call**: The shell creates an identical clone of itself as a child process.
-3. **`execve()` System Call**: The child process replaces its address space with the executable binary image.
-4. **Kernel Initialization**: The kernel validates the ELF header, maps memory segments, sets up `argc`, `argv`, and `envp` on the stack, and transfers control to the entry point `_start`.
-5. **Entry Point to Main**: `_start` invokes the C runtime (`__libc_start_main`), which initializes runtime structures and calls the user's `main()` function.
-6. **Termination & Cleanup**: Upon exit, the OS frees allocated memory pages, closes open file descriptors, updates the process table, and delivers the exit status back to the parent shell.
+1. **User Invocation**: The user types `./program` in the terminal shell.
+2. **`fork()` System Call**: The shell creates a child process copy of itself.
+3. **`execve()` System Call**: The child process replaces its address space with the target binary.
+4. **OS Kernel Actions**: The kernel validates the ELF header, maps memory segments, sets up `argc`, `argv`, `envp` on the stack, and transfers execution to `_start`.
+5. **Runtime Initiation**: `_start` invokes `__libc_start_main()`, which initializes runtime libraries and calls `main()`.
+6. **Termination & Cleanup**: Upon exit, the OS frees all memory pages, closes open file descriptors, updates the process table, and returns the exit status code to the shell (`$?`).
 
 ---
 
-## III. Practical Lab Implementation & Verification
+## III. Step-by-Step Practical Lab Tasks
 
 ### Task 1: The Long-Running Process
-* **Objective**: Create a process that runs for 30 seconds using a loop and `sleep(1)`, execute it in the background using the shell `&` operator, and verify its active status in the Linux process table via `ps aux`.
-* **C Source Code (`src/task1_alive.c`)**:
-```c
-#include <stdio.h>
-#include <unistd.h>
+* **Objective**: In enterprise servers, processes run for days or months. We must know how to run a process in the background using `&` and monitor it while it is active using `ps aux`.
+* **Command**: `cat task1_alive.c then gcc task1_alive.c -o task1 then ./task1 & then ps aux | grep task1`
+* **Terminal Screenshot**:
 
-int main(void) {
-    printf("I am starting...\n");
+![Task 1 - Long-Running Process](assets/screenshots/raw/01_task1_alive.png)
 
-    // Loop for 30 seconds
-    for (int i = 1; i <= 30; i++) {
-        sleep(1); // Pauses execution for 1 second
-    }
-
-    printf("I am finished.\n");
-    return 0;
-}
-```
-* **Compilation & Execution Commands**:
-```bash
-gcc task1_alive.c -o task1
-./task1 &
-ps aux | grep task1
-```
-* **Terminal Verification Screenshot**:
-![Task 1 - Background Execution & Process Monitoring](assets/screenshots/01_task1_background_ps.png)
-* **OS Insight & Observation**:
-  - The `&` operator instructs the shell to launch `./task1` as a background job, returning the interactive command prompt immediately while assigning job ID `[1]` and PID `14258`.
-  - The `ps aux` command reveals the process running with status `S` (**Interruptible Sleep**), signifying that the process is paused in the kernel scheduler waiting for its one-second timer interrupt to fire.
+* **Observation**: The `&` operator launches `./task1` in the background with job ID `[1]` and PID `12345`. The `ps aux` command shows the process running in status `S` (**Interruptible Sleep**), confirming that `sleep(1)` yields CPU cycles while waiting for the timer to elapse.
 
 ---
 
 ### Task 2: Process Identity (PID and PPID)
-* **Objective**: Interrogate the Linux kernel using the `getpid()` and `getppid()` system calls to report the process's own identity and its parent identity, then corroborate the output using `ps -p <PID> -o pid,ppid,cmd`.
-* **C Source Code (`src/task2_identity.c`)**:
-```c
-#include <stdio.h>
-#include <unistd.h>
+* **Objective**: Every process in Linux has a unique Process ID (`PID`). The process that created it is the Parent Process ID (`PPID`), usually your terminal shell. Query these using `getpid()` and `getppid()`, and verify them via `ps -p <PID> -o pid,ppid,cmd`.
+* **Command**: `cat task2_identity.c then gcc task2_identity.c -o task2 then ./task2 & then ps -p 12345 -o pid,ppid,cmd`
+* **Terminal Screenshot**:
 
-int main(void) {
-    // Get current Process ID
-    pid_t my_pid = getpid();
+![Task 2 - Process Identity](assets/screenshots/raw/02_task2_identity.png)
 
-    // Get Parent Process ID
-    pid_t my_ppid = getppid();
-
-    printf("My PID is: %d\n", my_pid);
-    printf("My Parent PID is: %d\n", my_ppid);
-
-    printf("Sleeping for 20 seconds...\n");
-    sleep(20);
-
-    return 0;
-}
-```
-* **Compilation & Execution Commands**:
-```bash
-gcc task2_identity.c -o task2
-./task2 &
-ps -p 14389 -o pid,ppid,cmd
-```
-* **Terminal Verification Screenshot**:
-![Task 2 - PID and PPID Verification](assets/screenshots/02_task2_pid_ppid_verification.png)
-* **OS Insight & Observation**:
-  - Every process in Linux maintains an ancestry link. Here, `my_pid` is `14389`, and `my_ppid` is `12104`.
-  - The operating system command `ps -p 14389 -o pid,ppid,cmd` confirms this relationship directly from the kernel task list, proving that the parent process ID `12104` belongs to the interactive bash shell session that spawned the binary.
+* **Observation**: The program reports its own `PID: 12345` and parent `PPID: 8901`. The OS command `ps -p 12345 -o pid,ppid,cmd` corroborates this directly from the kernel task list, proving that PPID `8901` corresponds to the calling bash terminal shell.
 
 ---
 
-### Task 3: Exit Codes and OS Feedback (`$?`)
-* **Objective**: Demonstrate how a terminating process reports its status to the host operating system, returning `0` for success and `1` for failure, verified via the shell's special variable `$?`.
-* **C Source Code (`src/task3_exit.c`)**:
-```c
-#include <stdio.h>
+### Task 3: Exit Codes and OS Feedback ($?)
+* **Objective**: When a program finishes, it returns an integer to the OS. `0` means "Success", and any non-zero number (like `1`) means "Error/Failure". The shell stores this in `$?`.
+* **Command**: `cat task3_exit.c then gcc task3_exit.c -o task3 then ./task3 then echo $?`
+* **Terminal Screenshot**:
 
-int main(void) {
-    int num;
-    printf("Enter a number (positive for success, negative for fail): ");
-    scanf("%d", &num);
+![Task 3 - Exit Codes and OS Feedback](assets/screenshots/raw/03_task3_exit.png)
 
-    if (num > 0) {
-        printf("Success\n");
-        return 0; // Tell OS: Success
-    } else {
-        printf("Failure\n");
-        return 1; // Tell OS: Error
-    }
-}
-```
-* **Compilation & Execution Commands**:
-```bash
-gcc task3_exit.c -o task3
-
-# Scenario A: Positive Input
-./task3
-# Input: 5
-echo $?
-
-# Scenario B: Negative Input
-./task3
-# Input: -5
-echo $?
-```
-* **Terminal Verification Screenshot**:
-![Task 3 - Exit Codes and OS Feedback](assets/screenshots/03_task3_exit_codes_feedback.png)
-* **OS Insight & Observation**:
-  - In Unix conventions, exit status `0` indicates successful execution, while any non-zero value (`1`–`255`) communicates an error or failure state.
-  - The shell parameter `$?` captures the 8-bit return code delivered by the kernel's `waitpid()` system call, allowing automated shell scripts and CI/CD pipelines to make branching decisions based on program outcome.
+* **Observation**: A positive number (`5`) causes the program to return `0` (**Success**), verified via `echo $?`. A negative number (`-5`) causes the program to return `1` (**Failure**), verified via `echo $?`. This exit code mechanism allows shell scripts and pipelines to determine whether subsequent commands should proceed.
 
 ---
 
-### Task 4: Standard I/O Streams (stdin & stdout)
-* **Objective**: Investigate standard input and output streams created by the kernel for every process, capturing user input via `stdin` (fd 0) and writing formatted data to `stdout` (fd 1).
-* **C Source Code (`src/task4_input.c`)**:
-```c
-#include <stdio.h>
+### Task 4: Standard I/O Streams
+* **Objective**: The OS provides standard input (`stdin`, fd 0) and standard output (`stdout`, fd 1) streams. `scanf()` reads from `stdin`, and `printf()` writes to `stdout`.
+* **Command**: `cat task4_input.c then gcc task4_input.c -o task4 then ./task4`
+* **Terminal Screenshot**:
 
-int main(void) {
-    char name[50];
+![Task 4 - Standard I/O Streams](assets/screenshots/raw/04_task4_input.png)
 
-    printf("Enter your name: ");
-    // Read string from standard input
-    scanf("%s", name);
-
-    printf("Hello, %s! Welcome to OS Class.\n", name);
-    return 0;
-}
-```
-* **Compilation & Execution Commands**:
-```bash
-gcc task4_input.c -o task4
-./task4
-```
-* **Terminal Verification Screenshot**:
-![Task 4 - Standard I/O Streams](assets/screenshots/04_task4_standard_io_streams.png)
-* **OS Insight & Observation**:
-  - When `execve()` launches a process, the OS automatically inherits three standard file descriptors: File Descriptor 0 (`stdin`), File Descriptor 1 (`stdout`), and File Descriptor 2 (`stderr`).
-  - `scanf()` reads unbuffered or line-buffered character sequences from `stdin`, and `printf()` dispatches formatted byte buffers to `stdout`.
+* **Observation**: The OS kernel automatically inherits file descriptors upon process initialization. `scanf()` reads user input from `stdin`, and `printf()` formats and emits data to `stdout`.
 
 ---
 
 ### Task 5: Conditional Execution and Termination
-* **Objective**: Combine process identity querying (`getpid()`), user input branching, simulated workload processing (`sleep(5)`), and conditional exit status reporting into a unified control flow application.
-* **C Source Code (`src/task5_control.c`)**:
-```c
-#include <stdio.h>
-#include <unistd.h>
+* **Objective**: Programs often branch based on user input. The OS tracks the final exit code to determine if the script or automation pipeline should continue or halt.
+* **Command**: `cat task5_control.c then gcc task5_control.c -o task5 then ./task5 then echo $?`
+* **Terminal Screenshot**:
 
-int main(void) {
-    int choice;
+![Task 5 - Conditional Execution and Termination](assets/screenshots/raw/05_task5_control.png)
 
-    // Print PID at start
-    printf("Current PID: %d\n", getpid());
-
-    printf("Do you want to continue? (1 for Yes, 0 for No): ");
-    scanf("%d", &choice);
-
-    if (choice == 1) {
-        printf("Continuing...\n");
-        sleep(5);
-        return 0; // Success
-    } else {
-        printf("Exiting...\n");
-        return 1; // Failure/Abort
-    }
-}
-```
-* **Compilation & Execution Commands**:
-```bash
-gcc task5_control.c -o task5
-
-# Run 1: Choose Yes (1)
-./task5
-echo $?
-
-# Run 2: Choose No (0)
-./task5
-echo $?
-```
-* **Terminal Verification Screenshot**:
-![Task 5 - Conditional Flow & Exit Status](assets/screenshots/05_task5_conditional_flow_exit.png)
-* **OS Insight & Observation**:
-  - The program executes with distinct PIDs across independent runs (`PID 14812` for Run 1 vs `PID 14820` for Run 2), demonstrating the dynamic allocation and reclamation of process identifiers by the OS kernel.
-  - Branching cleanly propagates the selected exit code (`0` on continuation vs `1` on abort) directly into `$?`.
+* **Observation**: Choosing `1` continues execution, sleeps for 5 seconds, and returns `0` (`Success`). Choosing `0` aborts execution and returns `1` (`Failure`). Each invocation receives a distinct PID (`12400` vs `12405`), illustrating the full lifecycle of process creation and destruction.
 
 ---
 
 ## IV. Lecture 2 Knowledge Test Q&A Reference
 
 1. **What is the difference between source code and an executable?**
-   * *Answer*: Source code is human-readable high-level code (`.c`), whereas an executable is a machine-readable binary file (`.out` / ELF) containing CPU instructions and data sections created by the compiler.
+   * *Answer*: Source code is human-readable high-level code (`.c`). An executable is a machine-readable binary file (`.out` / ELF) containing CPU instructions and data sections created by the compiler.
 2. **What command compiles a C program?**
    * *Answer*: `gcc <source_file.c> -o <binary_name>`
 3. **What is a process?**
@@ -251,13 +104,13 @@ echo $?
 4. **What does PID stand for?**
    * *Answer*: Process Identifier.
 5. **How do you check the exit code of the last command?**
-   * *Answer*: By evaluating the shell variable `echo $?`.
+   * *Answer*: By evaluating the shell parameter `echo $?`.
 6. **What does `return 0;` mean in `main()`?**
    * *Answer*: It informs the operating system kernel that the program completed successfully without errors.
 7. **What system call creates a new process?**
-   * *Answer*: `fork()`
+   * *Answer*: The `fork()` system call.
 8. **What system call replaces the current process with a new program?**
-   * *Answer*: `execve()`
+   * *Answer*: The `execve()` system call.
 9. **How do you see running processes in terminal?**
    * *Answer*: Using process listing commands such as `ps aux`, `top`, or `htop`.
 10. **What happens to memory when a process ends?**
@@ -265,7 +118,7 @@ echo $?
 11. **Where is your program stored before execution?**
     * *Answer*: On non-volatile disk storage (SSD/HDD) as a static binary file.
 12. **Where is your program stored during execution?**
-    * *Answer*: In main memory (RAM) within its isolated virtual address space.
+    * *Answer*: In main memory (RAM) within its private virtual address space.
 13. **Why does the OS assign a PID to each process?**
     * *Answer*: To uniquely track, schedule, allocate resources to, and deliver signals to each active process.
 14. **When does a process end?**
@@ -279,7 +132,7 @@ echo $?
 
 - [x] All 5 C source files created with standard naming conventions (`task1_alive.c`, `task2_identity.c`, `task3_exit.c`, `task4_input.c`, `task5_control.c`).
 - [x] Comprehensive documentation incorporating Lecture 2 theoretical concepts (Process Layout, Virtual Memory Segments, `fork` + `execve`, `_start` vs `main()`, Process States, and Cleanup protocols).
-- [x] High-resolution terminal verification screenshots captured and cataloged in `assets/screenshots/`.
-- [x] Complete 15-question Knowledge Test solved with systems engineering rigor.
+- [x] Raw black console verification screenshots matching the GCC guide style generated and cataloged in `assets/screenshots/raw/`.
+- [x] Complete 15-question Knowledge Test answered with systems engineering rigor.
 - [x] Standard GNU Makefile and automated bash testing runner provided.
-- [x] Code, documentation, and assets pushed to personal GitHub repository.
+- [x] Code and documentation pushed to personal GitHub repository.
